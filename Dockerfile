@@ -22,5 +22,6 @@ ENV oc_ftpHost=""
 ENV oc_ftpRemDir=""
 ENV oc_ftpHostDir=""
 ENV oc_ftpParallel=""
-
+ENV oc_ftpUpdatePassword=""
+ENV oc_ftpUpdatePassTransfer=""
 ENTRYPOINT [ "/usr/local/bin/entrypoint.sh" ]

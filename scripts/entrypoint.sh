@@ -11,7 +11,8 @@ ftpHost="${oc_ftpHost:-}"
 ftpRemDir="${oc_ftpRemDir:-}"
 ftpHostDir="${oc_ftpHostDir:-}"
 ftpParallel="${oc_ftpParallel:-8}"
-
+ftpUpdatePassword="${oc_ftpUpdatePassword:-false}"
+ftpUpdatePassTransfer="${oc_ftpUpdatePassTransfer:-true}"
 ########################################
 # Start Openconnect to server in background
 # Arguments:
@@ -60,8 +61,39 @@ transferFiles () {
   printf "Completed lftp transfer of all NEW files in specified directory %s\n" "${ftpRemDir}"
   cat /tmp/lftp_output.txt
 }
+updateFTPpass () {
+  ftpUser="${1}"
+  ftpPass="${2}"
+  ftpHost="${3}"
+  ftpRemDir="${4}"
+  ftpHostDir="${5}"
+  ftpParallel="${6:-8}"
+  # oldpassword/newpassword/newpassword
+  ftpOldPass="${ftpPass:0:8}"
+  ftpNewPass="${ftpPass:9:8}"
+  ftpPassStr="${ftpOldPass}/${ftpNewPass}/${ftpNewPass}"
+  ftpPassOutputFile=/tmp/lftp_passchng_output.txt
+  printf "Starting lftp password reset using oldpass: %s newpass: %s reset_string: %s\n" "${ftpOldPass}" "${ftpNewPass}" "${ftpPassStr}"
+  ftpArgs="set ftp:ssl-allow no; lcd /${ftpHostDir}; cd \'${ftpRemDir}\'; lpwd; exit"
+  lftp -u "${ftpUser},${ftpPassStr}" ftp://"${ftpHost}" -e "$(printf '%s' "${ftpArgs}")" > "${ftpPassOutputFile}" 2>&1
+  if grep -q -E "cd ok, cwd=.*V03433" "${ftpPassOutputFile}"; then
+    printf "Completed lftp password update oldpass: %s newpass: %s reset_string: %s\n" "${ftpOldPass}" "${ftpNewPass}" "${ftpPassStr}"
+    cat "${ftpPassOutputFile}"
+    if [ "${ftpUpdatePassTransfer}" = "true" ]; then
+      printf "Starting transfer after successful password change with new password: %s\n" "${ftpNewPass}"
+      transferFiles "${ftpUser}" "${ftpNewPass}" "${ftpHost}" "${ftpRemDir}" "${ftpHostDir}" "${ftpParallel}"
+    else
+      exit 0
+    fi
+  else
+    printf "FTP password update FAILED!\n oldpass: %s newpass: %s reset_string: %s\n Exiting NOW!\n" "${ftpOldPass}" "${ftpNewPass}" "${ftpPass}"
+    cat "${ftpPassOutputFile}"
+    exit 1
+  fi
+}
 if startVpn "${vpnUser}" "${vpnPass}" "${vpnServer}" "${vpnProtocol}" "${vpnPIDFile}"; then
-  transferFiles "${ftpUser}" "${ftpPass}" "${ftpHost}" "${ftpRemDir}" "${ftpHostDir}" "${ftpParallel}"
+  [ "${ftpUpdatePassword}" = "true" ] && updateFTPpass "${ftpUser}" "${ftpPass}" "${ftpHost}" "${ftpRemDir}" "${ftpHostDir}" "${ftpParallel}"
+  [ "${ftpUpdatePassword}" = "false" ] && transferFiles "${ftpUser}" "${ftpPass}" "${ftpHost}" "${ftpRemDir}" "${ftpHostDir}" "${ftpParallel}"
 else
   echo "Failed to start vpn"
   exit 1

@@ -4,6 +4,8 @@ Container is built using an openconnect container as its base then adds lftp and
 
 All variables should be set in a `.env.docker` file an example of this file is provided as `.env.docker.sample` simply.
 
+**NOTE**: Take note of the comments in .env.docker to see how to reset the FTP password that is required every 60 days. Information is in 1password about this.
+
 ```bash
 # .env.docker is default ignored in project.
 cp -p .env.docker.sample .env.docker
