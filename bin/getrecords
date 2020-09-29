@@ -1,0 +1,259 @@
+#!/usr/bin/env bash
+cd "$(dirname "$0")" || exit
+cd ..
+# Enable debugging of script
+S_DEBUG=${S_DEBUG:-}
+# Dump verbose information about commands without executing them.
+DUMP_ENV=${DUMP_ENV:-false}
+# source local .env.ovpn file if present
+LOCAL_ENVFILE=${LOCAL_ENVFILE:-".env.ovpn"}
+LOAD_ENVFILE=${LOAD_ENVFILE:-".env.docker:.env.docker.local"}
+# The Container image to use for the ci defaults to unifio/ci latest
+DOCKER_IMAGE_NAME=${DOCKER_IMAGE_NAME:-"sdunixgeek/attocvpn"}
+# Sets the Docker workspace to mount and set as working directory -w
+DOCKER_WORKSPACE=${DOCKER_WORKSPACE:-"/records"}
+# Will not pull docker image before running if set. Set to false to pull
+DOCKER_NO_PULL=${DOCKER_NO_PULL:-true}
+# The project root directory to mount in docker workspace
+SRC_ROOT=${SRC_ROOT:-"$(pwd)"}
+# VPN Environment Variables
+oc_vpnUser=${oc_vpnUser:-}
+oc_secureIDpin=${oc_secureIDpin:-}
+oc_secureIDtoken=${oc_secureIDtoken:-}
+oc_vpnPass="${oc_secureIDpin}${oc_secureIDtoken}"
+oc_vpnServer=${oc_vpnServer:-}
+oc_vpnProtocol=${oc_vpnProtocol:-"anyconnect"}
+oc_vpnPIDFile=${oc_vpnPIDFile:-"/tmp/ocpid.txt"}
+# FTP Credentials Environment Variables
+oc_ftpUser=${oc_ftpUser:-}
+oc_ftpPass=${oc_ftpPass:-}
+oc_ftpPassNew=${oc_ftpPassNew:-}
+oc_ftpHost=${oc_ftpHost:-}
+oc_ftpRemDir=${oc_ftpRemDir:-}
+oc_ftpHostDir=${oc_ftpHostDir:-"/records"}
+oc_ftpParallel=${oc_ftpParallel:-8}
+# set this to true if you are trying to update to a new password
+# and make sure you set oc_ftpPass=oc_ftpPass/oc_ftpPassNew/oc_ftpPassNew
+oc_ftpUpdatePassword=${oc_ftpUpdatePassword:-false}
+# set this to true if you want to immediately start a transfer after the password is updated.
+# false if you want to skip the transfer and just exit after updating password.
+oc_ftpUpdatePassTransfer=${oc_ftpUpdatePassTransfer:-false}
+# Create initial Docker Base Command
+DOCKER_BASE_COMMANDS[0]="docker run"
+ARGS=()
+
+
+# Checks if ARGS already contains the given value
+has_arg() {
+  local element
+  for element in "${@:2}"; do
+      [ "${element}" == "${1}" ] && return 0
+  done
+  return 1
+}
+# Adds the given argument if not specified
+add_arg() {
+  local arg="${1}"
+  [ $# -ge 1 ] && local val="${2}"
+  if ! has_arg "${arg}" "${DOCKER_BASE_COMMANDS[@]}"; then
+    ARGS+=("${arg}")
+    [ $# -ge 1 ] && ARGS+=("$(printf %q "${val}")")
+  fi
+}
+# Adds the given argument duplicates ok.
+add_arg_simple() {
+  local arg="${1}"
+  [ $# -ge 1 ] && local val="${2}"
+  ARGS+=("${arg}")
+  [ $# -ge 1 ] && ARGS+=("$(printf %q "${val}")")
+}
+# add envfiles for docker if they exist in working directory
+add_docker_envfiles(){
+  local envfiles="${1}"
+  IFS=':' read -r -a arrenvs <<< "$envfiles"
+  for i in "${arrenvs[@]}"
+  do
+    if [[ -r "${i}" ]];then
+      add_arg "--env-file" "$(pwd)/${i}"
+    fi
+  done
+}
+add_env_var_arg(){
+  local varName="${1}"
+  local varValue="${2}"
+  add_arg_simple "-e" "${varName}=${varValue}"
+}
+# add envfiles for docker if they exist in working directory
+createVpnPass(){
+  local oc_secureIDpin="${1}"
+  local oc_secureIDtoken="${2}"
+  printf "%s%s" "${oc_secureIDpin}" "${oc_secureIDtoken}"
+}
+updateFtpPass(){
+  local oc_ftpPass_OG="${1}"
+  local oc_ftpPass_NEW="${2}"
+  printf "%s/%s/%s" "${oc_ftpPass_OG}" "${oc_ftpPass_NEW}" "${oc_ftpPass_NEW}"
+}
+usage () {
+echo "Usage: $0 [Option] [Argument]"
+echo ""
+cat << EOT | column -t -s'~'
+Option~Argument~Example~Default~Description
+-m~N/A~N/A~N/A~Display this Usage message
+-d~N/A~N/A~N/A~Set bash script debug on
+-p~oc_secureIDpin~123454~UNSET~SecureID Pin Number
+-s~oc_secureIDtoken~234234~UNSET~SecureID Token Number
+-h~oc_vpnServer~https://hostname~UNSET~VPN Host
+-i~oc_vpnProtocol~anyconnect~anyconnect~VPN Server Protocol
+-f~oc_vpnPIDFile~/tmp/ocpid.txt~/tmp/ocpid.txt~VPN PID File
+-u~oc_ftpUser~Z32174~UNSET~FTP username
+-P~oc_ftpPass~8asdc#@c~UNSET~FTP Password
+-H~oc_ftpHost~192.168.1.1~UNSET~FTP Host
+-R~oc_ftpRemDir~X.AP.DRCP~UNSET~FTP Remote Directory
+-D~oc_ftpHostDir~/records~/records~Container Directory to store Records in
+-Z~oc_ftpParallel~8~8~Number of parallel FTP transfers allowed
+-U~N/A~N/A~false~Will update FTP Password sets oc_ftpUpdatePassTransfer to true
+-N~oc_ftpPassNew~XR3P@~UNSET~New password to update with. requires -U
+-S~N/A~N/A~false~Transfer after pass change. sets oc_ftpUpdatePassTransfer to true. requires -U.
+-X~N/A~N/A~false~Dump the docker command that would hav ebeen run.
+EOT
+}
+# require at lest a task or -l to run
+if [ $# -lt 1 ]; then
+  usage
+  exit 1
+elif [ $# -eq 1 ] &&  [ "$1" == "-d" ]; then
+  set -x
+  usage
+  exit 1
+fi
+# Load local env file if provided/available
+# That way explicit options will overwrite
+# any env vars sourced in LOCAL_ENVFILE
+if [[ -r "${LOCAL_ENVFILE}" ]]; then
+  . ./"${LOCAL_ENVFILE}"
+fi
+# Parse arguments and populate ENV vars respectively
+# See Environment Variable section or .env.covalence for
+# option details.
+while getopts ":p:s:h:i:f:u:P:H:R:D:USXmdZ:N:" opt; do
+  case $opt in
+    p)
+      oc_secureIDpin="$OPTARG"
+      ;;
+    s)
+      oc_secureIDtoken="$OPTARG"
+      ;;
+    h)
+      oc_vpnServer="$OPTARG"
+      ;;
+    i)
+      oc_vpnProtocol="$OPTARG"
+      ;;
+    f)
+      oc_vpnPIDFile="$OPTARG"
+      ;;
+    u)
+      oc_ftpUser="$OPTARG"
+      ;;
+    P)
+      oc_ftpPass="$OPTARG"
+      ;;
+    H)
+      oc_ftpHost="$OPTARG"
+      ;;
+    R)
+      oc_ftpRemDir="$OPTARG"
+      ;;
+    D)
+      oc_ftpHostDir="$OPTARG"
+      ;;
+    Z)
+      oc_ftpParallel="$OPTARG"
+      ;;
+    N)
+      oc_ftpPassNew="$OPTARG"
+      ;;
+    U)
+      oc_ftpUpdatePassword=true
+      ;;
+    S)
+      oc_ftpUpdatePassTransfer=true
+      ;;
+    X)
+      DUMP_ENV=true
+      ;;
+    m)
+      usage
+      exit 0
+      ;;
+    d)
+      S_DEBUG=1
+      ;;
+    \?)
+      set +x
+      echo "Invalid option: -$OPTARG" >&2
+      usage
+      exit 1
+      ;;
+    :)
+      set +x
+      echo "Option -$OPTARG requires an argument." >&2
+      usage
+      exit 1
+      ;;
+  esac
+done
+
+# Get rid of processed options from Array
+shift "$((OPTIND-1))"
+USER_ARGS=("${@}")
+# Check for debug statements
+[[ $S_DEBUG ]] && set -x
+
+if [[ "$oc_secureIDpin" ]] && [[ "$oc_secureIDtoken" ]]; then
+  oc_vpnPass=$(createVpnPass "$oc_secureIDpin" "$oc_secureIDtoken")
+  add_env_var_arg oc_vpnPass "${oc_vpnPass}"
+fi
+[[ "$oc_vpnServer" ]] && add_env_var_arg oc_vpnServer "${oc_vpnServer}"
+[[ "$oc_vpnProtocol" ]] && add_env_var_arg oc_vpnProtocol "${oc_vpnProtocol}"
+[[ "$oc_vpnPIDFile" ]] && add_env_var_arg oc_vpnPIDFile "${oc_vpnPIDFile}"
+if [[ "$oc_ftpPass" ]] && [[ "$oc_ftpUpdatePassword" == false ]]; then
+  add_env_var_arg oc_ftpPass "${oc_ftpPass}"
+elif [[ "$oc_ftpPass" ]] && [[ "$oc_ftpUpdatePassword" == true ]] && [[ "$oc_ftpPassNew" ]]; then
+  oc_ftpPass=$(updateFtpPass "${oc_ftpPass}" "${oc_ftpPassNew}")
+  add_env_var_arg oc_ftpPass "${oc_ftpPass}"
+  [[ "$oc_ftpUpdatePassTransfer" ]] && add_env_var_arg oc_ftpUpdatePassTransfer "${oc_ftpUpdatePassTransfer}"
+fi
+[[ "$oc_ftpHost" ]] && add_env_var_arg oc_ftpHost "${oc_ftpHost}"
+[[ "$oc_ftpRemDir" ]] && add_env_var_arg oc_ftpRemDir "${oc_ftpRemDir}"
+if [[ "$oc_ftpHostDir" ]]; then
+  mkdir -p ."${oc_ftpHostDir}"
+  add_arg_simple "-w" "${oc_ftpHostDir}"
+  add_arg_simple "-v" "$(pwd)${oc_ftpHostDir}:${oc_ftpHostDir}"
+fi
+[[ "$oc_ftpParallel" ]] && add_env_var_arg oc_ftpParallel "${oc_ftpParallel}"
+[[ "${LOAD_ENVFILE}" ]] && add_docker_envfiles "${LOAD_ENVFILE}"
+# All options should be completed
+# Only image and task remain.
+
+if [[ $DOCKER_IMAGE_NAME ]];then
+  ARGS+=("-it")
+  ARGS+=("--rm")
+  ARGS+=("--privileged")
+  ARGS+=("$DOCKER_IMAGE_NAME")
+  [[ -z $DOCKER_NO_PULL ]] && docker pull "$DOCKER_IMAGE_NAME"
+fi
+# Merged Commands for execution
+DOCKER_BASE_COMMANDS=(${DOCKER_BASE_COMMANDS[@]} ${ARGS[@]} ${USER_ARGS[@]})
+if [[ $DUMP_ENV == "true" ]]; then
+  echo "DOCKER_BASE_COMMANDS that would have been executed without -X"
+  echo "${DOCKER_BASE_COMMANDS[@]}"
+  # echo "ARGS array"
+  # echo "${ARGS[@]}"
+  # echo "USER_ARGS array"
+  # echo "${USER_ARGS[@]}"
+  # echo ""
+else
+  bash -c "${DOCKER_BASE_COMMANDS[*]}"
+fi
