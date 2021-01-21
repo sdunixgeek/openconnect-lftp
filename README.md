@@ -2,28 +2,25 @@
 
 Container is built using an openconnect container as its base then adds lftp and opens connection by default then transferring all files from the mainframe directory to the mounted host directory in the container.
 
-All variables should be set in a `.env.docker` file an example of this file is provided as `.env.docker.sample` simply.
+All variables should be set in a `.env.ovpn` file an example of this file is provided as `.env.ovpn.sample` simply.
 
-**NOTE**: Take note of the comments in .env.docker to see how to reset the FTP password that is required every 60 days. Information is in 1password about this.
+**NOTE**: Take note of the comments in .env.ovpn to see how to reset the FTP password that is required every 60 days. Information is in 1password about this.
 
 ```bash
-# .env.docker is default ignored in project.
-cp -p .env.docker.sample .env.docker
-vi .env.docker
+# .env.ovpn is default ignored in project.
+cp -p .env.ovpn.sample .env.ovpn
+vi .env.ovpn
 ```
 
-Once you have the .env.docker file available you can build the container and run it with the following command. As mentioned it will connect to the vpn server then issue the lftp commands to download all new records not present in the mounted host records directory.
+Once you have the .env.ovpn file available you can build the container and run it with the following command. As mentioned it will connect to the vpn server then issue the lftp commands to download all new records not present in the mounted host records directory.
 
 ```bash
 # Create the records directory.
 # ./records is Default ignored in project
 mkdir -p ./records
-# Run container specifying .env.docker file for secretes and variables.
-docker run -it --rm \
-  --privileged -w /records \
-  -v $(pwd)/records:/records \
-  --env-file .env.docker \
-  sdunixgeek/attocvpn
+# Run script ensuring appropriate values are set in .env.ovpn so it can create the appropriate docker run command and execute.
+# Provide secureid token after -s and -d enables debug so you can see the full docker command ran.
+bin/getrecords -d -s 132414
 ```
 
 To build the container locally instead of allowing it to pull from [sdunixgeek/attocvpn](https://hub.docker.com/repository/docker/sdunixgeek/attocvpn) on docker hub do the following:
@@ -35,11 +32,7 @@ docker build -f Dockerfile -t  sdunixgeek/attocvpn .
 ## Example Output
 
 ```text
-docker run -it --rm \
->   --privileged -w /records \
->   -v $(pwd)/records:/records \
->   --env-file .env.docker \
->   sdunixgeek/attocvpn
+bin/getrecords -d -s 132414
 Starting openconnect VPN client...
 Starting lftp transfer of all NEW files in specified directory G.AC.AFSD
 Failed to read from SSL socket: The transmitted packet is too large (EMSGSIZE).
