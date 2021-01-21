@@ -216,6 +216,8 @@ if [[ "$oc_secureIDpin" ]] && [[ "$oc_secureIDtoken" ]]; then
   add_env_var_arg oc_vpnPass "${oc_vpnPass}"
 fi
 [[ "$oc_vpnServer" ]] && add_env_var_arg oc_vpnServer "${oc_vpnServer}"
+[[ "$oc_vpnUser" ]] && add_env_var_arg oc_vpnUser "${oc_vpnUser}"
+[[ "$oc_ftpUser" ]] && add_env_var_arg oc_ftpUser "${oc_ftpUser}"
 [[ "$oc_vpnProtocol" ]] && add_env_var_arg oc_vpnProtocol "${oc_vpnProtocol}"
 [[ "$oc_vpnPIDFile" ]] && add_env_var_arg oc_vpnPIDFile "${oc_vpnPIDFile}"
 if [[ "$oc_ftpPass" ]] && [[ "$oc_ftpUpdatePassword" == false ]]; then
@@ -223,12 +225,14 @@ if [[ "$oc_ftpPass" ]] && [[ "$oc_ftpUpdatePassword" == false ]]; then
 elif [[ "$oc_ftpPass" ]] && [[ "$oc_ftpUpdatePassword" == true ]] && [[ "$oc_ftpPassNew" ]]; then
   oc_ftpPass=$(updateFtpPass "${oc_ftpPass}" "${oc_ftpPassNew}")
   add_env_var_arg oc_ftpPass "${oc_ftpPass}"
+  add_env_var_arg oc_ftpUpdatePassword "${oc_ftpUpdatePassword}"
   [[ "$oc_ftpUpdatePassTransfer" ]] && add_env_var_arg oc_ftpUpdatePassTransfer "${oc_ftpUpdatePassTransfer}"
 fi
 [[ "$oc_ftpHost" ]] && add_env_var_arg oc_ftpHost "${oc_ftpHost}"
 [[ "$oc_ftpRemDir" ]] && add_env_var_arg oc_ftpRemDir "${oc_ftpRemDir}"
 if [[ "$oc_ftpHostDir" ]]; then
   mkdir -p ."${oc_ftpHostDir}"
+  add_env_var_arg oc_ftpHostDir "${oc_ftpHostDir}"
   add_arg_simple "-w" "${oc_ftpHostDir}"
   add_arg_simple "-v" "$(pwd)${oc_ftpHostDir}:${oc_ftpHostDir}"
 fi
