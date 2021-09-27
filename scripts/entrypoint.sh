@@ -2,6 +2,7 @@
 # Environment variables
 vpnUser="${oc_vpnUser:-}"
 vpnPass="${oc_vpnPass:-}"
+serverCert="${oc_serverCert:-}"
 vpnServer="${oc_vpnServer:-}"
 vpnProtocol="${oc_vpnProtocol:-anyconnect}"
 vpnPIDFile="${oc_vpnPIDFile:-/tmp/ocpid.txt}"
@@ -25,6 +26,7 @@ ftpUpdatePassTransfer="${oc_ftpUpdatePassTransfer:-true}"
 # Returns:
 #   returns success or fail after starting openconnect.
 ########################################
+
 startVpn () {
   vpnUser="${1}"
   vpnPass="${2}"
@@ -32,14 +34,28 @@ startVpn () {
   vpnProtocol="${4:-anyconnect}"
   vpnPIDFile="${5:-/tmp/ocpid.txt}"
   echo "Starting openconnect VPN client..."
-  echo "${vpnPass}" | \
-    openconnect "${vpnServer}" \
-      --protocol="${vpnProtocol}" \
-      --user="${vpnUser}" \
-      --quiet \
-      --background \
-      --pid-file="${vpnPIDFile}" \
-      --passwd-on-stdin
+  if [ -n "${serverCert}" ]; then
+    echo "Using serverCert ${serverCert}..."
+    echo "${vpnPass}" | \
+      openconnect "${vpnServer}" \
+        --protocol="${vpnProtocol}" \
+        --user="${vpnUser}" \
+        --quiet \
+        --background \
+        --pid-file="${vpnPIDFile}" \
+        --servercert="${serverCert}" \
+        --passwd-on-stdin
+  else
+    echo "NO serverCert set ${serverCert}..."
+    echo "${vpnPass}" | \
+      openconnect "${vpnServer}" \
+        --protocol="${vpnProtocol}" \
+        --user="${vpnUser}" \
+        --quiet \
+        --background \
+        --pid-file="${vpnPIDFile}" \
+        --passwd-on-stdin
+  fi
   vpnSecs=30
   vpnEndTime=$(( $(date +%s) + vpnSecs ))
   while [ "$(date +%s)" -lt $vpnEndTime ]; do

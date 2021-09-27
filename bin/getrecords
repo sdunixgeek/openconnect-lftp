@@ -18,6 +18,7 @@ DOCKER_NO_PULL=${DOCKER_NO_PULL:-true}
 SRC_ROOT=${SRC_ROOT:-"$(pwd)"}
 # VPN Environment Variables
 oc_vpnUser=${oc_vpnUser:-}
+oc_serverCert=${oc_serverCert:-}
 oc_secureIDpin=${oc_secureIDpin:-}
 oc_secureIDtoken=${oc_secureIDtoken:-}
 oc_vpnPass="${oc_secureIDpin}${oc_secureIDtoken}"
@@ -217,6 +218,7 @@ if [[ "$oc_secureIDpin" ]] && [[ "$oc_secureIDtoken" ]]; then
 fi
 [[ "$oc_vpnServer" ]] && add_env_var_arg oc_vpnServer "${oc_vpnServer}"
 [[ "$oc_vpnUser" ]] && add_env_var_arg oc_vpnUser "${oc_vpnUser}"
+[[ "$oc_serverCert" ]] && add_env_var_arg oc_serverCert "${oc_serverCert}"
 [[ "$oc_ftpUser" ]] && add_env_var_arg oc_ftpUser "${oc_ftpUser}"
 [[ "$oc_vpnProtocol" ]] && add_env_var_arg oc_vpnProtocol "${oc_vpnProtocol}"
 [[ "$oc_vpnPIDFile" ]] && add_env_var_arg oc_vpnPIDFile "${oc_vpnPIDFile}"

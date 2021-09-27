@@ -13,6 +13,7 @@ VOLUME [ "/records" ]
 
 ENV oc_vpnUser=""
 ENV oc_vpnPass=""
+ENV oc_serverCert=""
 ENV oc_vpnServer=""
 ENV oc_vpnProtocol=""
 ENV oc_vpnPIDFile=""
