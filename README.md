@@ -25,8 +25,21 @@ bin/getrecords -d -s 132414
 
 To build the container locally instead of allowing it to pull from [sdunixgeek/attocvpn](https://hub.docker.com/repository/docker/sdunixgeek/attocvpn) on docker hub do the following:
 
+Build for local machine
+
 ```bash
 docker build -f Dockerfile -t  sdunixgeek/attocvpn .
+```
+
+Buildx for multi-arch
+
+```bash
+# Create buildx instance and use
+docker buildx create --name attocvpn --use
+# Create build and push for arm64 and amd64 ti sdunixgeek
+docker buildx build --platform linux/arm64,linux/amd64 -t sdunixgeek/attocvpn:latest . --push
+# Remove buildx instance once done
+docker buildx rm attocvpn
 ```
 
 ## Example Output
