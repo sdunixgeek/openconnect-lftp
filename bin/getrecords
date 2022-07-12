@@ -14,6 +14,7 @@ DOCKER_IMAGE_NAME=${DOCKER_IMAGE_NAME:-"sdunixgeek/attocvpn"}
 DOCKER_WORKSPACE=${DOCKER_WORKSPACE:-"/records"}
 # Will not pull docker image before running if set. Set to false to pull
 DOCKER_NO_PULL=${DOCKER_NO_PULL:-true}
+DOCKER_BUILD=${DOCKER_BUILD:-false}
 # The project root directory to mount in docker workspace
 SRC_ROOT=${SRC_ROOT:-"$(pwd)"}
 # VPN Environment Variables
@@ -248,6 +249,7 @@ if [[ $DOCKER_IMAGE_NAME ]];then
   ARGS+=("--rm")
   ARGS+=("--privileged")
   ARGS+=("$DOCKER_IMAGE_NAME")
+  [[ $DOCKER_BUILD = "true" ]] && docker build -t sdunixgeek/attocvpn .
   [[ -z $DOCKER_NO_PULL ]] && docker pull "$DOCKER_IMAGE_NAME"
 fi
 # Merged Commands for execution
