@@ -22,7 +22,9 @@ RUN set -ex \
     && curl http://git.infradead.org/users/dwmw2/vpnc-scripts.git/blob_plain/HEAD:/vpnc-script -o /etc/vpnc/vpnc-script \
     && chmod 750 /etc/vpnc/vpnc-script \
     ## 1.3 create build dir, download, verify and decompress OC package to build dir
-    && gpg --keyserver pgp.mit.edu --recv-key 0xbe07d9fd54809ab2c4b0ff5f63762cda67e2f359 \
+    && mkdir ~/.gnupg \
+    && echo "disable-ipv6" >> ~/.gnupg/dirmngr.conf && chmod 0600 ~/.gnupg \
+    && gpg --keyserver keyserver.ubuntu.com --recv-key 0xbe07d9fd54809ab2c4b0ff5f63762cda67e2f359 \
     && mkdir -p /tmp/build/openconnect \
     && curl -SL "ftp://ftp.infradead.org/pub/openconnect/openconnect-$OC_VERSION.tar.gz" -o /tmp/openconnect.tar.gz \
     && curl -SL "ftp://ftp.infradead.org/pub/openconnect/openconnect-$OC_VERSION.tar.gz.asc" -o /tmp/openconnect.tar.gz.asc \
