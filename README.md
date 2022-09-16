@@ -41,6 +41,63 @@ docker buildx build --platform linux/arm/v7,linux/arm64,linux/amd64 -t sdunixgee
 # Remove buildx instance once done
 docker buildx rm attocvpn
 ```
+## Troubleshoot
+
+Below are some common issues and how to address them.
+
+### Error in the certificate
+
+If when attempting to connect to the openconnect endpoint you receive a certificate error like this
+
+```
+Starting openconnect VPN client...
+Using serverCert sha256:snfovo22zzcmrsdecdwtpl9aww3z4t3kmbxfyoldec13gteje...
+None of the 1 fingerprint(s) specified via --servercert match server's certificate: pin-sha256:snfovo22zzcmrsdecdwtpl9aww3z4t3kmbxfyoldec13gteje
+SSL connection failure: Error in the certificate.
+Failed to open HTTPS connection to somehost.example.exmpl.com
+Failed to complete authentication
+```
+
+Then you should
+
+First grab the fingerprint for the server using your local cli `sha256:xr119o3xwqdnd9bvhd88n8t8fzeh9fmr1xwq5c1wbjji` in the example output below
+
+command
+```bash
+gnutls-cli --insecure somehost.example.exmpl.com
+```
+output
+```bash
+Processed 0 CA certificate(s).
+Resolving 'somehost.example.exmpl.com:443'...
+Connecting to '101.70.158.164:443'...
+- Certificate type: X.509
+- Got a certificate list of 1 certificates.
+- Certificate[0] info:
+ - subject `CN=somehost.example.exmpl.com,O=Random Services\, Inc.,L=Dallas,ST=Texas,C=US', issuer `CN=DigiCert TLS RSA SHA256 2020 CA1,O=DigiCert Inc,C=US', serial snfovo22zzcmrsdecdwtpl9aww3z4t3kmbxfyoldec13gteje, RSA key 2048 bits, signed using RSA-SHA256, activated `2022-08-17 00:00:00 UTC', expires `2023-08-24 23:59:59 UTC', pin-sha256="snfovo22zzcmrsdecdwtpl9aww3z4t3kmbxfyoldec13gteje="
+	Public Key ID:
+		sha1:snfovo22zzcmrsdecdwtpl9aww3z4t3kmbxfyoldec13gteje
+		sha256:xr119o3xwqdnd9bvhd88n8t8fzeh9fmr1xwq5c1wbjji
+	Public Key PIN:
+		pin-sha256:snfovo22zzcmrsdecdwtpl9aww3z4t3kmbxfyoldec13gteje
+
+- Status: The certificate is NOT trusted. The certificate issuer is unknown.
+*** PKI verification of server certificate failed...
+- Description: (TLS1.2-X.509)-(RSA)-(AES-256-CBC)-(SHA1)
+- Session ID: 84:21:2C:29:C7:1C:70:D6:D7:F7:35:E3:C0:99:D9:52:5F:C8:AD:D8:A0:51:43:DF:13:27:30:88:CC:86:F7:B6
+- Options: safe renegotiation,
+- Handshake was completed
+
+- Simple Client Mode:
+```
+
+Then add that to your .env.ovpn as the following
+
+```
+oc_serverCert=sha256:xr119o3xwqdnd9bvhd88n8t8fzeh9fmr1xwq5c1wbjji
+```
+
+Then try again.
 
 ## Example Output
 
